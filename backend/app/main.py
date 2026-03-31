@@ -28,8 +28,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.api.router import api_router
-from app.db.session import engine, Base
+from app.db.session import engine, Base, SessionLocal
 import app.models.models  # noqa: F401 — registers models with Base
+from app.models.models import Dataset
 
 # ---------------------------------------------------------------------------
 # Configure logging FIRST — before anything else logs
@@ -52,6 +53,20 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created/verified.")
+
+    # ONE-TIME CLEANUP: remove datasets whose names end with "Liberia"
+    db = SessionLocal()
+    try:
+        liberia_datasets = db.query(Dataset).filter(Dataset.name.ilike("%Liberia")).all()
+        for ds in liberia_datasets:
+            logger.info("Removing duplicate dataset: %r (id=%s)", ds.name, ds.id)
+            db.delete(ds)
+        db.commit()
+        if liberia_datasets:
+            logger.info("Cleanup complete: %d dataset(s) removed.", len(liberia_datasets))
+    finally:
+        db.close()
+
     logger.info("=== %s v%s starting ===", settings.app_name, settings.app_version)
     logger.info("Environment : %s", settings.app_env)
     logger.info("API docs    : http://%s:%s/docs", settings.api_host, settings.api_port)
