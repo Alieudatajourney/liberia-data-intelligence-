@@ -370,11 +370,10 @@ try:
         )
     else:
         st.warning("Backend is reachable but reported an unexpected status.")
-except Exception:
+except Exception as _e:
     st.error(
-        f"Cannot connect to the backend at `{API_BASE_URL}`. "
-        "Start it with: `uvicorn app.main:app --reload` "
-        "(run from the `backend/` directory).",
+        f"Cannot connect to `{API_BASE_URL}`. "
+        f"Error: `{type(_e).__name__}: {_e}`",
         icon="🔴",
     )
 
