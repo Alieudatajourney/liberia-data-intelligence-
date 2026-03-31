@@ -30,8 +30,12 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 # ── API configuration ──────────────────────────────────────────────────────
 API_BASE_URL     = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_V1           = f"{API_BASE_URL}/api/v1"
-REQUEST_TIMEOUT  = 10   # seconds for normal data requests
-DOWNLOAD_TIMEOUT = 30   # seconds for CSV export (can be a large file)
+REQUEST_TIMEOUT  = 30   # seconds for normal data requests
+DOWNLOAD_TIMEOUT = 60   # seconds for CSV export (can be a large file)
+
+# Shared httpx client — verify=False handles self-signed certs in Railway's
+# internal network; follow_redirects handles any HTTP→HTTPS redirects.
+_http = httpx.Client(verify=False, follow_redirects=True, timeout=REQUEST_TIMEOUT)
 
 
 # ============================================================
@@ -63,7 +67,7 @@ def fetch_datasets() -> list[dict]:
     Each dataset is one source Excel file (e.g. "LISGIS Census 2008").
     """
     try:
-        r = httpx.get(f"{API_V1}/datasets/", timeout=REQUEST_TIMEOUT)
+        r = _http.get(f"{API_V1}/datasets/", timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         return r.json()
     except Exception:
@@ -80,7 +84,7 @@ def fetch_indicators(dataset_id: int | None = None) -> list[dict]:
     if dataset_id is not None:
         params["dataset_id"] = dataset_id
     try:
-        r = httpx.get(f"{API_V1}/indicators/", params=params, timeout=REQUEST_TIMEOUT)
+        r = _http.get(f"{API_V1}/indicators/", params=params, timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         return r.json()
     except Exception:
@@ -91,7 +95,7 @@ def fetch_indicators(dataset_id: int | None = None) -> list[dict]:
 def fetch_counties() -> list[dict]:
     """GET /counties/ — return all counties (alphabetical)."""
     try:
-        r = httpx.get(f"{API_V1}/counties/", timeout=REQUEST_TIMEOUT)
+        r = _http.get(f"{API_V1}/counties/", timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         return r.json()
     except Exception:
@@ -105,7 +109,7 @@ def fetch_summary() -> dict:
     total datasets, indicators, counties, observations, year range.
     """
     try:
-        r = httpx.get(f"{API_V1}/summary/", timeout=REQUEST_TIMEOUT)
+        r = _http.get(f"{API_V1}/summary/", timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         return r.json()
     except Exception:
@@ -132,7 +136,7 @@ def fetch_observations(
     if year_from:      params["year_from"]       = year_from
     if year_to:        params["year_to"]         = year_to
     try:
-        r = httpx.get(f"{API_V1}/observations/", params=params, timeout=REQUEST_TIMEOUT)
+        r = _http.get(f"{API_V1}/observations/", params=params, timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
         return r.json()
     except Exception:
@@ -156,7 +160,7 @@ def fetch_trend(
     if year_from:    params["year_from"]    = year_from
     if year_to:      params["year_to"]      = year_to
     try:
-        r = httpx.get(f"{API_V1}/summary/trend", params=params, timeout=REQUEST_TIMEOUT)
+        r = _http.get(f"{API_V1}/summary/trend", params=params, timeout=REQUEST_TIMEOUT)
         if r.status_code == 404:
             return None   # No data — handled gracefully in the UI
         r.raise_for_status()
@@ -178,7 +182,7 @@ def fetch_comparison(
     params: dict = {"indicator_name": indicator_name, "year": year}
     if dataset_name: params["dataset_name"] = dataset_name
     try:
-        r = httpx.get(f"{API_V1}/summary/compare", params=params, timeout=REQUEST_TIMEOUT)
+        r = _http.get(f"{API_V1}/summary/compare", params=params, timeout=REQUEST_TIMEOUT)
         if r.status_code == 404:
             return None
         r.raise_for_status()
@@ -195,7 +199,7 @@ def send_ai_query(question: str) -> dict | None:
     user presses "Ask".
     """
     try:
-        r = httpx.post(
+        r = _http.post(
             f"{API_V1}/ai/query",
             json    = {"question": question},
             timeout = 30,
@@ -226,7 +230,7 @@ def fetch_csv_bytes(
     if year_from:      params["year_from"]       = year_from
     if year_to:        params["year_to"]         = year_to
     try:
-        r = httpx.get(
+        r = _http.get(
             f"{API_V1}/download/cleaned",
             params  = params,
             timeout = DOWNLOAD_TIMEOUT,
@@ -356,7 +360,7 @@ st.markdown(
 # ── Backend health banner ──────────────────────────────────────────────────
 # Shown at the top so the user immediately knows if the backend is reachable.
 try:
-    _h = httpx.get(f"{API_V1}/health/", timeout=5).json()
+    _h = _http.get(f"{API_V1}/health/", timeout=5).json()
     if _h.get("status") == "ok":
         st.success(
             f"Backend connected — "
