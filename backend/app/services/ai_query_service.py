@@ -183,42 +183,35 @@ RULES
 
 
 # ---------------------------------------------------------------------------
-# Claude API wrapper
+# Gemini API wrapper
 # ---------------------------------------------------------------------------
 
-def _call_claude(
+def _call_gemini(
     system_prompt: str,
     user_message:  str,
-    max_tokens:    int = 512,
 ) -> str:
     """
-    Call the Claude API and return the raw text response.
+    Call the Google Gemini API and return the raw text response.
 
-    Args:
-        system_prompt : The system instructions for Claude.
-        user_message  : The user-facing message content.
-        max_tokens    : Maximum response length in tokens.
-
-    Returns:
-        Raw text from the first content block.
+    Uses gemini-1.5-flash — free tier, 1,500 requests/day.
+    Get a free API key at: https://aistudio.google.com/apikey
 
     Raises:
         RuntimeError : On API failure or empty response.
     """
-    import anthropic  # imported here so startup doesn't fail if not installed
+    import google.generativeai as genai  # imported here so startup doesn't fail if not installed
 
-    client   = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    response = client.messages.create(
-        model    = "claude-opus-4-6",
-        max_tokens = max_tokens,
-        system   = system_prompt,
-        messages = [{"role": "user", "content": user_message}],
+    genai.configure(api_key=settings.gemini_api_key)
+    model    = genai.GenerativeModel(
+        model_name        = "gemini-1.5-flash",
+        system_instruction = system_prompt,
     )
+    response = model.generate_content(user_message)
 
-    if not response.content:
-        raise RuntimeError("Claude returned an empty response.")
+    if not response.text:
+        raise RuntimeError("Gemini returned an empty response.")
 
-    return response.content[0].text.strip()
+    return response.text.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -240,10 +233,9 @@ def _classify_and_extract(
     Raises:
         RuntimeError: If the API call fails or the response is not valid JSON.
     """
-    raw = _call_claude(
+    raw = _call_gemini(
         system_prompt = _EXTRACTION_SYSTEM_PROMPT,
         user_message  = question,
-        max_tokens    = 512,
     )
     logger.debug("AI extraction raw response: %s", raw)
 
@@ -450,10 +442,9 @@ def _generate_explanation(
     )
 
     try:
-        return _call_claude(
+        return _call_gemini(
             system_prompt = _EXPLANATION_SYSTEM_PROMPT,
             user_message  = user_message,
-            max_tokens    = 256,
         )
     except Exception as exc:
         logger.warning("Explanation generation failed: %s", exc)
@@ -498,8 +489,8 @@ def run_ai_query(request: AIQueryRequest, db: Session) -> AIQueryResponse:
     # ------------------------------------------------------------------
     # Guard: AI unavailable
     # ------------------------------------------------------------------
-    if not settings.anthropic_api_key:
-        logger.warning("AI query attempted but ANTHROPIC_API_KEY is not set.")
+    if not settings.gemini_api_key:
+        logger.warning("AI query attempted but GEMINI_API_KEY is not set.")
         return AIQueryResponse(
             question         = request.question,
             intent_type      = "",
@@ -511,8 +502,8 @@ def run_ai_query(request: AIQueryRequest, db: Session) -> AIQueryResponse:
             result_preview   = [],
             explanation      = (
                 "The AI query layer is currently disabled. "
-                "Set ANTHROPIC_API_KEY in your .env file to enable it. "
-                "You can still use GET /api/v1/observations to filter data directly."
+                "Set GEMINI_API_KEY in your Railway environment variables to enable it. "
+                "Get a free key at https://aistudio.google.com/apikey"
             ),
             ai_available     = False,
         )

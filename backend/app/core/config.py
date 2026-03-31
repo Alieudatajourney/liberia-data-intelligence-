@@ -42,9 +42,11 @@ class Settings(BaseSettings):
     # --- Logging ---
     log_level: str = "INFO"               # DEBUG | INFO | WARNING | ERROR
 
-    # --- AI / External APIs (optional — not used in v1 skeleton) ---
-    # Set these only when you are ready to enable the AI query feature.
-    anthropic_api_key: str = ""           # Leave blank to disable AI layer
+    # --- AI / External APIs ---
+    # Set GEMINI_API_KEY in Railway dashboard to enable the AI query feature.
+    # Get a free key at: https://aistudio.google.com/apikey
+    anthropic_api_key: str = ""           # Legacy — no longer used
+    gemini_api_key: str = ""              # Leave blank to disable AI layer
 
     # ---------------------------------------------------------------
     # Heroku compatibility fix
