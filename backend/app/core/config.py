@@ -43,10 +43,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"               # DEBUG | INFO | WARNING | ERROR
 
     # --- AI / External APIs ---
-    # Set GEMINI_API_KEY in Railway dashboard to enable the AI query feature.
-    # Get a free key at: https://aistudio.google.com/apikey
+    # Set GROQ_API_KEY in Railway dashboard to enable the AI query feature.
+    # Get a free key at: https://console.groq.com
     anthropic_api_key: str = ""           # Legacy — no longer used
-    gemini_api_key: str = ""              # Leave blank to disable AI layer
+    groq_api_key: str = ""                # Leave blank to disable AI layer
 
     # ---------------------------------------------------------------
     # Heroku compatibility fix

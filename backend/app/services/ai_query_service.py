@@ -183,7 +183,7 @@ RULES
 
 
 # ---------------------------------------------------------------------------
-# Gemini API wrapper
+# Groq API wrapper
 # ---------------------------------------------------------------------------
 
 def _call_gemini(
@@ -191,27 +191,32 @@ def _call_gemini(
     user_message:  str,
 ) -> str:
     """
-    Call the Google Gemini API and return the raw text response.
+    Call the Groq API and return the raw text response.
 
-    Uses gemini-1.5-flash — free tier, 1,500 requests/day.
-    Get a free API key at: https://aistudio.google.com/apikey
+    Uses llama-3.1-8b-instant — free tier, 14,400 requests/day.
+    Get a free API key at: https://console.groq.com
 
     Raises:
         RuntimeError : On API failure or empty response.
     """
-    import google.generativeai as genai  # imported here so startup doesn't fail if not installed
+    from groq import Groq  # imported here so startup doesn't fail if not installed
 
-    genai.configure(api_key=settings.gemini_api_key)
-    model    = genai.GenerativeModel(
-        model_name        = "gemini-1.5-flash",
-        system_instruction = system_prompt,
+    client   = Groq(api_key=settings.groq_api_key)
+    response = client.chat.completions.create(
+        model    = "llama-3.1-8b-instant",
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message},
+        ],
+        max_tokens  = 512,
+        temperature = 0.1,
     )
-    response = model.generate_content(user_message)
 
-    if not response.text:
-        raise RuntimeError("Gemini returned an empty response.")
+    text = response.choices[0].message.content
+    if not text:
+        raise RuntimeError("Groq returned an empty response.")
 
-    return response.text.strip()
+    return text.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -489,7 +494,7 @@ def run_ai_query(request: AIQueryRequest, db: Session) -> AIQueryResponse:
     # ------------------------------------------------------------------
     # Guard: AI unavailable
     # ------------------------------------------------------------------
-    if not settings.gemini_api_key:
+    if not settings.groq_api_key:
         logger.warning("AI query attempted but GEMINI_API_KEY is not set.")
         return AIQueryResponse(
             question         = request.question,
@@ -502,8 +507,8 @@ def run_ai_query(request: AIQueryRequest, db: Session) -> AIQueryResponse:
             result_preview   = [],
             explanation      = (
                 "The AI query layer is currently disabled. "
-                "Set GEMINI_API_KEY in your Railway environment variables to enable it. "
-                "Get a free key at https://aistudio.google.com/apikey"
+                "Set GROQ_API_KEY in your Railway environment variables to enable it. "
+                "Get a free key at https://console.groq.com"
             ),
             ai_available     = False,
         )
