@@ -1,0 +1,12 @@
+# =============================================================================
+# Liberia Data Intelligence — Frontend Dependencies
+# =============================================================================
+# Install with:
+#   pip install -r requirements.txt
+# =============================================================================
+
+streamlit==1.41.1     # Dashboard framework
+httpx==0.28.1         # HTTP client for API calls
+pandas==2.2.3         # DataFrame operations
+plotly==5.24.1        # Interactive charts
+python-dotenv==1.0.1  # Load .env file (local dev only)

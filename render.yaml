@@ -1,0 +1,98 @@
+# render.yaml
+# ============================================================
+# Render Blueprint — defines every service for the
+# Liberia Public Data Intelligence app in one file.
+#
+# How to use:
+#   1. Push this repo to GitHub
+#   2. Go to dashboard.render.com → New → Blueprint
+#   3. Connect your GitHub repo
+#   4. Render reads this file and creates everything automatically
+#
+# Services created:
+#   liberia-data-api       FastAPI backend
+#   liberia-dashboard      Streamlit frontend
+#   liberia-db             PostgreSQL database
+# ============================================================
+
+services:
+
+  # ── Backend: FastAPI ──────────────────────────────────────
+  - type: web
+    name: liberia-data-api
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+
+    buildCommand: pip install -r requirements.txt
+
+    # Database tables are created before the server starts.
+    # create_all() is safe to re-run — it skips existing tables.
+    preDeployCommand: python scripts/init_db.py
+
+    startCommand: >
+      gunicorn app.main:app
+      -w 2
+      -k uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:$PORT
+      --timeout 120
+
+    # Render pings this path to confirm the app is healthy
+    healthCheckPath: /api/v1/health/
+
+    envVars:
+      - key: APP_ENV
+        value: production
+
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Render injects DATABASE_URL automatically from the linked database below.
+      # It uses the postgresql:// prefix — no manual fix needed.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: liberia-db
+          property: connectionString
+
+      # Set this in the Render dashboard after deployment:
+      # Dashboard → liberia-data-api → Environment → ANTHROPIC_API_KEY
+      # Leave blank to run without the AI query feature.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+
+  # ── Frontend: Streamlit ───────────────────────────────────
+  - type: web
+    name: liberia-dashboard
+    env: python
+    region: oregon
+    plan: free
+    rootDir: frontend
+
+    buildCommand: pip install -r requirements.txt
+
+    startCommand: >
+      streamlit run streamlit_app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+
+    envVars:
+      # Set this AFTER the backend deploys so you have its URL.
+      # Value will be: https://liberia-data-api.onrender.com
+      # Dashboard → liberia-dashboard → Environment → API_BASE_URL
+      - key: API_BASE_URL
+        sync: false
+
+
+databases:
+
+  # ── PostgreSQL ────────────────────────────────────────────
+  - name: liberia-db
+    databaseName: liberia_data
+    user: liberia_user
+    region: oregon
+    plan: free
+    # Free plan note: Render's free PostgreSQL expires after 90 days.
+    # Upgrade to "starter" ($7/month) for a persistent database.
