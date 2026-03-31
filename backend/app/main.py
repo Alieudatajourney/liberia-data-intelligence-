@@ -28,6 +28,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.api.router import api_router
+from app.db.session import engine, Base
+import app.models.models  # noqa: F401 — registers models with Base
 
 # ---------------------------------------------------------------------------
 # Configure logging FIRST — before anything else logs
@@ -48,6 +50,8 @@ async def lifespan(app: FastAPI):
     This is the modern FastAPI replacement for @app.on_event("startup").
     """
     # --- Startup ---
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created/verified.")
     logger.info("=== %s v%s starting ===", settings.app_name, settings.app_version)
     logger.info("Environment : %s", settings.app_env)
     logger.info("API docs    : http://%s:%s/docs", settings.api_host, settings.api_port)
