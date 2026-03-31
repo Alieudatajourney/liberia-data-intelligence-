@@ -327,14 +327,18 @@ with st.sidebar:
     data_yr_min = summary.get("year_min") or 1990
     data_yr_max = summary.get("year_max") or 2025
 
-    year_range = st.slider(
-        "Year range",
-        min_value        = data_yr_min,
-        max_value        = data_yr_max,
-        value            = (data_yr_min, data_yr_max),
-        label_visibility = "collapsed",
-    )
-    active_year_from, active_year_to = year_range
+    if data_yr_min == data_yr_max:
+        st.caption(f"Only one year available: **{data_yr_min}**")
+        active_year_from, active_year_to = data_yr_min, data_yr_max
+    else:
+        year_range = st.slider(
+            "Year range",
+            min_value        = data_yr_min,
+            max_value        = data_yr_max,
+            value            = (data_yr_min, data_yr_max),
+            label_visibility = "collapsed",
+        )
+        active_year_from, active_year_to = year_range
 
     st.divider()
 
